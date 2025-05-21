@@ -1,0 +1,32 @@
+{
+  "name": "recoit-ocr",
+  "version": "0.0.1",
+  "description": "OCR service for recoit",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@bitbucket.org/fedevitch/recoit-ocr.git"
+  },
+  "keywords": [
+    "ocr"
+  ],
+  "author": "lyubomyr",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://bitbucket.org/fedevitch/recoit-ocr/issues"
+  },
+  "homepage": "https://bitbucket.org/fedevitch/recoit-ocr#readme",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "sharp": "^0.34.1",
+    "tesseract.js": "^6.0.1",
+    "winston": "^3.17.0"
+  }
+}

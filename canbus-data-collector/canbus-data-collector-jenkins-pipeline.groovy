@@ -1,0 +1,124 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jenkins-build-agent
+spec:
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent
+      args: ["\$(JENKINS_SECRET)", "\$(JENKINS_NAME)"]
+
+    - name: buildah
+      image: quay.io/buildah/stable
+      securityContext:
+        privileged: true
+      command: [ "sleep", "999999" ]
+      volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+
+    - name: kubectl
+      image: bitnami/kubectl
+      command: [ "sleep", "999999" ]
+      tty: true
+      securityContext:
+        runAsUser: 1000
+
+  volumes:
+    - name: workspace
+      emptyDir: {}
+"""
+    }
+  }
+
+  environment {
+    REGISTRY = "10.105.34.108"
+    IMAGE_NAME = "recoit-canbus-data-collector"
+    IMAGE_TAG = 'latest'
+    KUBE_NAMESPACE = "recoit"
+    GIT_URL = 'git@bitbucket.org:fedevitch/recoit-canbus-data-collector.git'
+    CREDENTIALS_ID = '3293e586-6ef8-4835-8781-333391ba3be1'
+  }
+
+  stages {        
+    stage('Checkout') {
+      steps {
+        sshagent(['3293e586-6ef8-4835-8781-333391ba3be1']) {
+          checkout([$class: 'GitSCM',
+            branches: [[name: 'origin/master']],
+            userRemoteConfigs: [[
+              url: 'git@bitbucket.org:fedevitch/recoit-canbus-data-collector.git',
+              credentialsId: '3293e586-6ef8-4835-8781-333391ba3be1'
+            ]]
+          ])
+        }
+      }
+    }
+
+    stage('Build and Push to registry') {
+      steps {
+        container('buildah') {
+            sh '''
+            buildah bud --cache-ttl=0 --format=docker -t $REGISTRY/$IMAGE_NAME:$BUILD_NUMBER -t $REGISTRY/$IMAGE_NAME:latest -t $REGISTRY/$IMAGE_NAME:staging .
+            buildah push --tls-verify=false --compression-format=zstd $REGISTRY/$IMAGE_NAME:$BUILD_NUMBER
+            buildah push --tls-verify=false --compression-format=zstd $REGISTRY/$IMAGE_NAME:staging
+            buildah push --tls-verify=false --compression-format=zstd $REGISTRY/$IMAGE_NAME:latest
+            '''
+        }
+      }
+    }
+
+    stage('Code coverage report') {
+      steps {
+        container('buildah') {
+          sh '''
+          container=$(buildah from $REGISTRY/$IMAGE_NAME:$BUILD_NUMBER)
+          mntpoint=$(buildah mount $container)
+          cp -r "$mntpoint/usr/src/app/coverage" coverage
+          '''
+        }
+      }
+    }
+
+    stage('Deploy App to Kubernetes') { 
+      steps {
+        container('kubectl') {
+          withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'recoit-k8s-secret', namespace: 'recoit', restrictKubeConfigAccess: false, serverUrl: 'https://192.168.49.2:8443') {
+            sh 'kubectl rollout restart -n recoit deployment recoit-canbus-data-collector-deployment'
+          }
+        }  
+      }
+    }
+  }
+
+  post {
+    always {
+      // raw folder with coverage info
+      archiveArtifacts artifacts: 'coverage/**/*', onlyIfSuccessful: true
+
+      // Publish Clover coverage (XML)
+      clover(cloverReportDir: 'coverage', cloverReportFileName: 'clover.xml',
+        // optional, default is: method=70, conditional=80, statement=80
+        healthyTarget: [methodCoverage: 70, conditionalCoverage: 80, statementCoverage: 80],
+        // optional, default is none
+        unhealthyTarget: [methodCoverage: 50, conditionalCoverage: 50, statementCoverage: 50],
+        // optional, default is none
+        failingTarget: [methodCoverage: 0, conditionalCoverage: 0, statementCoverage: 0]
+      )
+
+      // Publish HTML report (for visual browsing)
+      publishHTML([
+          reportName : 'Jest Coverage',
+          reportDir  : 'coverage/lcov-report',
+          reportFiles: 'index.html',
+          keepAll    : true,
+          alwaysLinkToLastBuild: true,
+          allowMissing: false
+      ])
+    }
+  }
+}

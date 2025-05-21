@@ -1,0 +1,29 @@
+@import '../../variables.scss';
+
+input[type="text"], input[type="password"] {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+    transition: all 0.3s ease-in-out;
+  
+    &:focus {
+      border-color: $primary-color;
+      box-shadow: 0 0 10px rgba($primary-color, 0.2);
+    }
+  }
+  
+  button[type="submit"] {
+    background-color: $primary-color;
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+  
+    &:hover {
+      background-color: darken($primary-color, 5%);
+    }
+  }
