@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recoit-frontend-deployment
+  namespace: recoit
+  labels:
+    name: recoit-frontend
+spec:
+  replicas: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  minReadySeconds: 30
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      name: recoit-frontend
+  template:
+    metadata:
+      name: recoit-frontend
+      namespace: recoit
+      labels:
+        name: recoit-frontend
+    spec:
+      containers:
+      - name: recoit-frontend
+        image: 10.105.34.108/recoit-frontend:staging
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: web
+        env:
+        - name: env
+          value: "staging"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: web

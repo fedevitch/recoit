@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: recoit-canbus-data-collector-service
+  namespace: recoit
+spec:
+  selector:
+    name: recoit-canbus-data-collector
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 3318
+      targetPort: 3318
+      nodePort: 30318
